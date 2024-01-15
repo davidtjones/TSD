@@ -14,9 +14,11 @@ maintainers = [
 ]
 license = { file="LICENSE" }
 readme = "README.md"
-homepage = "https://github.com/davidtjones/tsd"
-repository = "https://github.com/davidtjones/tsd"
 keywords = ["text", "spotting", "recognition", "detection"]
 dependencies = [
     "PIL"
 ]
+
+[project.urls]
+homepage = "https://github.com/davidtjones/tsd"
+repository = "https://github.com/davidtjones/tsd"
