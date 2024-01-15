@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tsd"
+version = "0.1.0"
+description = "Text spotting dataset tools"
+authors = [
+    { name = "David Jones", email = "d.t.jones@outlook.com" },
+]
+maintainers = [
+    { name = "David Jones", email = "d.t.jones@outlook.com" },
+]
+license = { file="LICENSE" }
+readme = "README.md"
+homepage = "https://github.com/davidtjones/tsd"
+repository = "https://github.com/davidtjones/tsd"
+keywords = ["text", "spotting", "recognition", "detection"]
+dependencies = [
+    "PIL"
+]
