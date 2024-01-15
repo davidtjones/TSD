@@ -16,7 +16,7 @@ license = { file="LICENSE" }
 readme = "README.md"
 keywords = ["text", "spotting", "recognition", "detection"]
 dependencies = [
-    "PIL"
+    "Pillow>9.0.0"
 ]
 
 [project.urls]
