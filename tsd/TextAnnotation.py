@@ -197,3 +197,8 @@ class QuadAnnotation(TextAnnotation):
 class PolygonAnnotation(TextAnnotation):
     def __init__(self):
         pass
+    
+    
+class BezierCurveAnnotation(TextAnnotation):
+    def __init__(self):
+        pass
