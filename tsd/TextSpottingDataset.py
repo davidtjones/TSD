@@ -1,27 +1,10 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
-import numpy as np
-from .TextAnnotation import (TextAnnotation, DotAnnotation, BoxAnnotation, 
-                             QuadAnnotation, PolygonAnnotation, 
-                             BezierCurveAnnotation)
+from .TextAnnotation import TextAnnotation
+from PIL import Image
+    
 
-COLORS = [
-    "#ea5545", 
-    "#f46a9b", 
-    "#ef9b20", 
-    "#edbf33", 
-    "#ede15b", 
-    "#bdcf32", 
-    "#87bc45", 
-    "#27aeef", 
-    "#b33dc6"]
-
-def draw_large_point(draw, x, y, size, fill):
-    draw.ellipse([(x - size, y - size), (x + size, y + size)], fill=fill)
-
-
-class TextSpottingDatasetElement:
+class TSElement:
     def __init__(self, image_path:str|Path, annotations:list[TextAnnotation]):
         self.image_path = image_path
         self.annotations = annotations
@@ -35,6 +18,14 @@ class TextSpottingDatasetElement:
     
     def __len__(self):
         return len(self.annotations)
+    
+    def __getitem__(self, idx):
+        return self.annotations[idx]
+    
+    def __setitem__(self, idx, item:TextAnnotation):
+        if type(item) != TextAnnotation:
+            return TypeError("Can only set to Text Annotations")
+        self.annotations[idx] = item
     
     def get_data_normalized(self):
         if not self.image_width or self.image_height:
@@ -52,87 +43,7 @@ class TextSpottingDatasetElement:
             normed_annotations.append(n)
         return normed_annotations
     
-    def visualize(self, save_path, astype=None):
-        if not self.image:
-            self._load_image()
-        image = self.image.copy()
-        
-        transparent_layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(transparent_layer)
-        
-        font_height = int(self.image_height * .025)
-        font = ImageFont.truetype(
-            # TODO: maybe just package some font?
-            font="UbuntuMono[wght].ttf", 
-            size=font_height,
-        )
-        outline_width = max(int(self.image_height * 0.01), 1)
-
-        for idx, annotation in enumerate(self.annotations):
-            color = idx % len(COLORS)
-            if astype:
-                annotation = annotation.to(astype)
-            
-            if type(annotation) == BezierCurveAnnotation:
-                # Draw the first Bezier curve
-                for t in np.arange(0, 1, 0.01):
-                    x, y = BezierCurveAnnotation._bezier_fn(annotation.curves[0], t)
-                    # draw.point([x, y], COLORS[color])
-                    draw_large_point(draw, x, y, outline_width//2, COLORS[color])
-
-                # Draw the second bezier curve
-                for t in np.arange(0, 1, 0.01):
-                    x, y = BezierCurveAnnotation._bezier_fn(annotation.curves[1], t)
-                    # draw.point([x, y], fill=COLORS[color])
-                    draw_large_point(draw, x, y, outline_width//2, COLORS[color])
-
-                # Draw the connecting lines
-                x1, y1 = annotation.coordinates[0]
-                x2, y2 = annotation.coordinates[3]
-
-                x3, y3 = annotation.coordinates[4]
-                x4, y4 = annotation.coordinates[7]
-                points = [[x1, y1]]
-
-                draw.line([(x1, y1), (x4, y4)], COLORS[color], width=outline_width)
-                draw.line([(x2, y2), (x3, y3)], COLORS[color], width=outline_width)
-                
-            else:
-                annotation = annotation.to(QuadAnnotation)
-                data = annotation.get_data()
-                points = [(data[f'x{i}'], data[f'y{i}']) for i in range(1, len(data)//2 + 1)]
-                
-                if type(annotation) == DotAnnotation:
-                    draw.point(points, fill=COLORS[color])
-
-                else:
-                    draw.polygon(
-                        points, 
-                        outline=COLORS[color],
-                        width=outline_width,
-                    )
-
-            x_text = points[0][0]
-            y_text = points[0][1] - font_height
-
-            text_width  = draw.textlength(annotation.text, font=font)
-            draw.rectangle([x_text, y_text, x_text + text_width, y_text + font_height], fill=COLORS[color])
-            
-            draw.text(
-                (x_text, y_text),
-                annotation.text, 
-                font=font,
-                fill='white',
-                stroke_fill='black')
-            
-            idx += 1
-            if idx == len(COLORS):
-                idx = 0
-        
-        image.paste(transparent_layer, mask=transparent_layer)
-        image.save(save_path)
-
-class TextSpottingDataset(ABC):
+class TSDataset(ABC):
     def __init__(self, root: str|Path, mode:str="train"):
         self.root = Path(root)
         if not self.root.exists():
@@ -160,7 +71,7 @@ class TextSpottingDataset(ABC):
         pass
     
     @abstractmethod
-    def _build_training(self) -> TextSpottingDatasetElement:
+    def _build_training(self) -> TSElement:
         pass
     
     def build(self):

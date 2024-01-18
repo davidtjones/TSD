@@ -16,7 +16,9 @@ license = { file="LICENSE" }
 readme = "README.md"
 keywords = ["text", "spotting", "recognition", "detection"]
 dependencies = [
-    "Pillow>9.0.0"
+    "numpy>1.26.0",
+    "Pillow>10.0.0",
+    "shapely>2.0.0"
 ]
 
 [project.urls]
