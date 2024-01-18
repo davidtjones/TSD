@@ -20,12 +20,6 @@ This package isn't on PyPI (yet), but you can still use pip to install it:
 pip install git+https://github.com/davidtjones/TSD.git
 ```
 
-## Usage
-There are three main classes included with this repo:
-
-### Text Spotting Dataset (TSDataset) & Text Spotting Element (TSElement)
-These are mostly convenient classes that make it easier to quickly build flexible dataset containers from any dataset. My use case here is to have automated setup and construction of datasets from open source datasets without needing to tell users specific instructions on how to unpack a massive dataset like HierText.
-
 ### TextAnnotation
 `TextAnnotation` is a base class that can be easily extended to support other annotation formats. This library includes several formats already. Of particular note is that TextAnnotation includes a class level conversion registry. Subclasses can be registered like so:
 ```
