@@ -3,9 +3,9 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tsd"
+name = "tau"
 version = "0.1.0"
-description = "Text spotting dataset tools"
+description = "Text Annotation Utilities"
 authors = [
     { name = "David Jones", email = "d.t.jones@outlook.com" },
 ]
