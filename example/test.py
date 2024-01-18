@@ -3,11 +3,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from tsd import (
+from tau import (
     BezierCurveAnnotation, BoxAnnotation, DotAnnotation, PolygonAnnotation, 
     QuadAnnotation)
 
-from tsd import Visualizer
+from tau import Visualizer
 
 def create_gif(image_folder, output_path, duration):
     images = []
