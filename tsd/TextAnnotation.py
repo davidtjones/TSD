@@ -263,7 +263,6 @@ class BezierCurveAnnotation(TextAnnotation):
         self.points = points
         self.coordinates = list(zip(self.points[::2], self.points[1::2]))
         self.curves = [self.coordinates[0:4], self.coordinates[4:8]]
-        # TODO: shape verification. Check that endpoints at least make sense?
     
     @staticmethod
     def _bezier_fn(curve, t):

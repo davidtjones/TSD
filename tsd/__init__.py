@@ -6,5 +6,4 @@ from .TextAnnotation import (
     QuadAnnotation,
     TextAnnotation,
 )
-from .TextSpottingDataset import TSDataset, TSElement
-from .visualize import visualize
+from .Visualizer import Visualizer

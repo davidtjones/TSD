@@ -1,4 +1,4 @@
-# Text Spotting Dataset Builder
+# Text Spotting Dataset Utilities
 This project supports buildling datasets for downstream tasks using many
 open-source text-spotting datasets. It includes a number of classes and tools to
 quickly and easily build text spotting datasets with many annotation types, 
@@ -48,5 +48,7 @@ This system works by constructing a graph of all registered conversions. When a 
 Polygon <--> Quad \
 Quad <--> Box \
 Box <--> Dot
+
+Note that moving up through the chain is a lossy process!!
 
 In addition, Bezier Curves can be converted to Polygons.

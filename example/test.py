@@ -3,12 +3,12 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from tsd import TSElement
 from tsd import (
     BezierCurveAnnotation, BoxAnnotation, DotAnnotation, PolygonAnnotation, 
     QuadAnnotation)
 
-from tsd import visualize
+from tsd import Visualizer
+
 def create_gif(image_folder, output_path, duration):
     images = []
     folder_path = Path(image_folder)
@@ -40,28 +40,30 @@ def create_gif(image_folder, output_path, duration):
     # Saving as GIF
     images[0].save(output_path, save_all=True, append_images=images[1:], duration=duration_ms, loop=0)
 
-
 out_path = Path("out")
 out_path.mkdir(parents=True, exist_ok=True)
 
 # Build annotations
 with open("data.json", 'r') as fp:
-    annotation_data = json.load(fp)
+    data = json.load(fp)
 
 annotations = []
-for ant in annotation_data:
+for ant in data:
     text = ant['rec']
     my_ant = BezierCurveAnnotation(text, ant['bezier_pts'])
     annotations.append(my_ant)
 
 
-tsde = TSElement("data.png", annotations)
+image_path = "data.png"
 
 # Test converting annotations
 # Bez -> Poly, Bez -> Quad, Bez -> Box, Bez -> Dot (tree walk)
 for conv, name in zip(
     [BezierCurveAnnotation, PolygonAnnotation, QuadAnnotation, BoxAnnotation, DotAnnotation],
     ['bezier', 'polygon', 'quad', 'box', 'dot']):
-    visualize(tsde, out_path / f"{name}.png", astype=conv)
+    vis = Visualizer(image_path, annotations)
+    vis.visualize(astype=conv, save_path=out_path / f"{name}.png")    
+        
+
 
 create_gif(out_path, "example.gif", 2)
