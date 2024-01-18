@@ -23,5 +23,5 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/davidtjones/tsd"
-repository = "https://github.com/davidtjones/tsd"
+homepage = "https://github.com/davidtjones/tau"
+repository = "https://github.com/davidtjones/tau"

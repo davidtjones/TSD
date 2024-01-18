@@ -8,15 +8,16 @@ from tau import (
     QuadAnnotation)
 
 from tau import Visualizer
+from tau.tools import download_and_unpack_font
 
 def create_gif(image_folder, output_path, duration):
     images = []
     folder_path = Path(image_folder)
-
+    font = download_and_unpack_font()
     font_size = 40
+    
     font = ImageFont.truetype(
-        # TODO: maybe just package some font?
-        "UbuntuMono[wght].ttf", 
+        font,
         font_size
     )
 

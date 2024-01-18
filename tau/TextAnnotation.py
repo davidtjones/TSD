@@ -1,28 +1,9 @@
 from abc import ABC
 import math
 from shapely.geometry import Polygon
-from shapely.affinity import rotate
 import numpy as np
 from queue import Queue
 from collections import defaultdict
-
-
-def flip_y_coordinates(cartesian_points):
-    """
-    Flip the y-coordinates of a list of points to simulate a screen coordinate system.
-
-    :param cartesian_points: List of tuples representing points (x, y) in Cartesian coordinates.
-    :return: List of tuples with flipped y-coordinates.
-    """
-    # Find the minimum and maximum y-coordinates
-    min_y = min(cartesian_points, key=lambda p: p[1])[1]
-    max_y = max(cartesian_points, key=lambda p: p[1])[1]
-
-    # Flip the y-coordinates
-    flipped_points = [(x, max_y - (y - min_y)) for x, y in cartesian_points]
-
-    return flipped_points
-    
 
 class Graph:
     def __init__(self):
@@ -197,25 +178,22 @@ class PolygonAnnotation(TextAnnotation):
             
 
     def to_quad(self):
-        # Turns out this is really hard. Unsure how to create quad
-        # representations from polygons while also maintaining a consistent
-        # ordering of points. E.g., sometimes the output quad starts from the 
-        # top right, other times it starts from the bottom left. It also seems
-        # kind of random.
-
+        """
+        Quads are actually kind of hard. I'm unsure if it is possible to
+        reliably ever convert to a quad because the shape and position are so
+        ambiguous. I can ensure that quads are always drawn the same way
+        relative to the image axes, but if text is rotated 90 degrees and the
+        quad is constructed relative to the angle of the text, there may be a 
+        problem. I'd like to test this more and investigate if datasets do this.
+        """
         # This may not be a guaranteed solution for very odd shapes.
         poly = Polygon(self.points)
 
-        # get convex hull
         convex_hull = poly.convex_hull
-
-        # get minimum rotated rectangle
+        
         min_rect = convex_hull.minimum_rotated_rectangle
-
-        # extract coordinate points
         ext_coords = list(min_rect.exterior.coords)[:-1] # drop duplicate
 
-        # Calculate centroid
         centroid = poly.centroid.coords[0]
 
         def angle_with_centroid(point):
@@ -224,13 +202,7 @@ class PolygonAnnotation(TextAnnotation):
         # Sort vertices based on angle
         sorted_vertices = sorted(ext_coords, key=angle_with_centroid)
 
-        # Shapely gives coordinates in standard cartesian. Convert to screen
-        # coordinates to keep everything consistent.
-        # screen_coords = flip_y_coordinates(sorted_vertices)
-
-        # flatten this and convert to int
         flattened_points = [int(coord) for point in sorted_vertices for coord in point]
-
 
         return QuadAnnotation(self.text, *flattened_points)
     
@@ -240,7 +212,6 @@ class PolygonAnnotation(TextAnnotation):
                 out_dict[f'x{idx//2 + 1}'], out_dict[f'y{idx//2 + 1}'] = val
         return out_dict
     
-
     def __repr__(self):
         return (f"Polygon({self.text})")
 
@@ -270,21 +241,37 @@ class BezierCurveAnnotation(TextAnnotation):
         x = (1-t)** 3 * curve[0][0] + 3*(1-t)**2 * t*curve[1][0] + 3*(1-t)*t**2 * curve[2][0] + t**3*curve[3][0]
         y = (1-t)** 3 * curve[0][1] + 3*(1-t)**2 * t*curve[1][1] + 3*(1-t)*t**2 * curve[2][1] + t**3*curve[3][1]
         return x, y
-
-    def to_polygon(self):
-        u = np.linspace(0, 1, 20)
-        bezier = np.array(self.points).reshape(2, 4, 2).transpose(0, 2, 1).reshape(4, 4)
-        points = np.outer((1 - u) ** 3, bezier[:, 0]) \
-            + np.outer(3 * u * ((1 - u) ** 2), bezier[:, 1]) \
-            + np.outer(3 * (u ** 2) * (1 - u), bezier[:, 2]) \
-            + np.outer(u ** 3, bezier[:, 3])
-        points = np.concatenate((points[:, :2], points[:, 2:]), axis=0)
-        points_flat = points.reshape(-1).tolist()
-
-        return PolygonAnnotation(
-            self.text,
-            *points_flat
-        )
+    
+    def get_data(self):
+        out_dict = {}
+        for idx, val in enumerate(self.points):
+                out_dict[f'x{idx//2 + 1}'], out_dict[f'y{idx//2 + 1}'] = val
+        return out_dict
+        
+    def to_polygon(self, n=20):
+        curve_top = np.array(self.points[:8]).reshape(4, 2)
+        curve_bottom = np.array(self.points[8:]).reshape(4, 2)
+        
+        t = np.linspace(0, 1, n)
+        t = t.reshape(-1, 1)
+        
+        # Setup bezier function
+        bernstein = np.array([(1-t)**3, 3*(1-t)**2*t, 3*(1-t)*t**2, t**3])
+        bernstein = bernstein.transpose(2, 1, 0)
+        
+        # Compute points on the curve
+        points_top = bernstein @ curve_top
+        points_bottom = bernstein @ curve_bottom
+        
+        polygon_full = np.concatenate(
+            (points_top.reshape(-1), 
+             points_bottom.reshape(-1)),
+            axis=0)
+            
+        return PolygonAnnotation(self.text, *polygon_full.tolist())
+        
+    def __repr__(self):
+        return (f"Bezier({self.text})")
 
 TextAnnotation.register_conversion(DotAnnotation, BoxAnnotation, DotAnnotation.to_box)
 TextAnnotation.register_conversion(BoxAnnotation, DotAnnotation, BoxAnnotation.to_dot)

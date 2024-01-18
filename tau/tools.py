@@ -14,7 +14,7 @@ def download_and_unpack_font(font_name="Roboto", font_url="https://fonts.google.
     else:
         raise NotImplementedError(f"No implementation for OS: {platform.system()}")
     
-    font_dir = data_dir / 'tsd' / 'fonts'
+    font_dir = data_dir / 'tau' / 'fonts'
     font_dir.mkdir(parents=True, exist_ok=True)
 
     font_path = font_dir / f'{font_name}-Regular.ttf'
@@ -22,7 +22,8 @@ def download_and_unpack_font(font_name="Roboto", font_url="https://fonts.google.
         return str(font_path)
     
     # Download the font
-    try: 
+    try:
+        print("Getting font...")
         response = requests.get(font_url)
         response.raise_for_status()
         zip_file = zipfile.ZipFile(BytesIO(response.content))
