@@ -8,16 +8,16 @@ from tau import (
     QuadAnnotation)
 
 from tau import Visualizer
-from tau.tools import download_and_unpack_font
+from tau.tools import FontHandler
 
 def create_gif(image_folder, output_path, duration):
     images = []
     folder_path = Path(image_folder)
-    font = download_and_unpack_font()
+    font_handler = FontHandler()
     font_size = 40
     
     font = ImageFont.truetype(
-        font,
+        font_handler.get_font("NotoSans"),
         font_size
     )
 
@@ -51,9 +51,8 @@ with open("data.json", 'r') as fp:
 annotations = []
 for ant in data:
     text = ant['rec']
-    my_ant = BezierCurveAnnotation(text, ant['bezier_pts'])
+    my_ant = BezierCurveAnnotation(text, "English", *ant['bezier_pts'])
     annotations.append(my_ant)
-
 
 image_path = "data.png"
 
@@ -63,7 +62,11 @@ for conv, name in zip(
     [BezierCurveAnnotation, PolygonAnnotation, QuadAnnotation, BoxAnnotation, DotAnnotation],
     ['bezier', 'polygon', 'quad', 'box', 'dot']):
     vis = Visualizer(image_path, annotations)
-    vis.visualize(astype=conv, save_path=out_path / f"{name}.png")    
+    vis.visualize(
+        astype=conv, 
+        save_path=out_path / f"{name}.png",
+        draw_language_name=False,
+        draw_vertex_numbers=False)    
         
 
 

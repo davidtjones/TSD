@@ -1,5 +1,5 @@
 import math
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from queue import Queue
 
@@ -38,6 +38,39 @@ class TextAnnotation(ABC):
                 ]
                 current_instance = conversion_func(current_instance)
         return current_instance
+    
+    @classmethod
+    def from_serialized(cls, serialized):
+        """Factory method"""
+        out_annotation = None
+        
+        ant_type = serialized.pop("type")
+        text = serialized.pop("text")
+        language = serialized.pop("language")
+        points = serialized.values()
+        match ant_type:
+            case "dot":
+                out_annotation = DotAnnotation(
+                    text, language, *points
+                )
+            case "box":
+                out_annotation = BoxAnnotation(
+                    text, language, *points
+                )
+            case "quad": 
+                out_annotation = QuadAnnotation(
+                    text, language, *points
+                )
+            case "polygon": 
+                out_annotation = PolygonAnnotation(
+                    text, language, *points
+                )
+            case "bezier":
+                out_annotation = BezierCurveAnnotation(
+                    text, language, points
+                )
+                
+        return out_annotation
 
     @classmethod
     def _find_conversion_path(cls, start_class, target_class):
@@ -51,6 +84,26 @@ class TextAnnotation(ABC):
             for e in cls._conversion_graph[curr_path[-1]]:
                 q.put(curr_path + [e])
 
+    @abstractmethod
+    def get_data(self):
+        """
+        This method should return a JSON-serializable dictionary for the
+        annotation, including information about the annotation's text, language,
+        and construction.
+
+        The classes in this library are created with the construction
+
+            x1, y1, x2, y2, ... xn, yn
+
+        This is flexible enough to be used for (almost?) any annotation type, is
+        easily serialized, and is easily parsed without needing special rules.
+        Note that DotAnnotation, which uses only one point, still returns xy
+        data as x1, y1. This allows downstream application to use consistent
+        parsing techniques for all types. It is strongy recommended that new
+        derived classes follow this schema.
+        """
+        pass
+
     def __init__(self, text, language=None):
         self.text = text
         self.language = language
@@ -62,13 +115,22 @@ class DotAnnotation(TextAnnotation):
         if len(args) != 2:
             raise ValueError("Two int values are required")
         self.x, self.y = args
+        self.type = "dot"
 
     def to_box(self):
         """Creates a "box" around the dot"""
-        return BoxAnnotation(self.text, self.x - 1, self.y + 1, self.x + 1, self.y - 1)
+        return BoxAnnotation(
+            self.text, self.language, self.x - 1, self.y + 1, self.x + 1, self.y - 1
+        )
 
     def get_data(self):
-        return {"x1": self.x, "y1": self.y}
+        return {
+            "type": self.type,
+            "text": self.text,
+            "language": self.language,
+            "x1": self.x,
+            "y1": self.y,
+        }
 
     def __repr__(self) -> str:
         return f"Dot({self.text})"
@@ -97,6 +159,8 @@ class BoxAnnotation(TextAnnotation):
         self.x1, self.y1 = self.points[0]
         self.x2, self.y2 = self.points[1]
 
+        self.type = "box"
+
     def _fix_args_order(self, args):
         # points must go from upper left to lower right, but we're in screen
         # coordinates, dy should be positive
@@ -124,7 +188,7 @@ class BoxAnnotation(TextAnnotation):
         """Returns the centerpoint of the 2D Box"""
         x = (self.x1 + self.x2) // 2
         y = (self.y1 + self.y2) // 2
-        return DotAnnotation(self.text, x, y)
+        return DotAnnotation(self.text, self.language, x, y)
 
     def to_quad(self):
         """
@@ -133,6 +197,7 @@ class BoxAnnotation(TextAnnotation):
         """
         return QuadAnnotation(
             self.text,
+            self.language,
             self.x1,
             self.y1,
             self.x1,
@@ -144,7 +209,15 @@ class BoxAnnotation(TextAnnotation):
         )
 
     def get_data(self):
-        return {"x1": self.x1, "y1": self.y1, "x2": self.x2, "y2": self.y2}
+        return {
+            "type": self.type,
+            "text": self.text,
+            "language": self.language,
+            "x1": self.x1,
+            "y1": self.y1,
+            "x2": self.x2,
+            "y2": self.y2,
+        }
 
     def __repr__(self):
         return f"Box({self.text})"
@@ -172,6 +245,8 @@ class QuadAnnotation(TextAnnotation):
         self.x3, self.y3 = self.points[2]
         self.x4, self.y4 = self.points[3]
 
+        self.type = "quad"
+
     def _fix_args_order(self, args):
         """
         Sorts points in "clockwise" order starting from top left.
@@ -198,7 +273,7 @@ class QuadAnnotation(TextAnnotation):
         # Shapely uses math coordinates
         minx, miny, maxx, maxy = bounding_box
         bounding_box = [minx, maxy, maxx, miny]
-        return BoxAnnotation(self.text, *bounding_box)
+        return BoxAnnotation(self.text, self.language, *bounding_box)
 
     def to_polygon(self):
         points = [
@@ -219,10 +294,13 @@ class QuadAnnotation(TextAnnotation):
             (self.x4 + self.x1) / 2,
             (self.y4 + self.y1) / 2,
         ]
-        return PolygonAnnotation(self.text, *points)
+        return PolygonAnnotation(self.text, self.language, *points)
 
     def get_data(self):
         return {
+            "type": self.type,
+            "text": self.text,
+            "language": self.language,
             "x1": self.x1,
             "y1": self.y1,
             "x2": self.x2,
@@ -245,6 +323,8 @@ class PolygonAnnotation(TextAnnotation):
             raise ValueError("An even number of values are required!")
 
         self.points = list(zip(args[::2], args[1::2]))
+
+        self.type = "polygon"
 
     def to_quad(self):
         """
@@ -273,10 +353,10 @@ class PolygonAnnotation(TextAnnotation):
 
         flattened_points = [int(coord) for point in sorted_vertices for coord in point]
 
-        return QuadAnnotation(self.text, *flattened_points)
+        return QuadAnnotation(self.text, self.language, *flattened_points)
 
     def get_data(self):
-        out_dict = {}
+        out_dict = {"type": self.type, "text": self.text, "language": self.language}
         for idx, val in enumerate(self.points):
             out_dict[f"x{idx//2 + 1}"], out_dict[f"y{idx//2 + 1}"] = val
         return out_dict
@@ -287,9 +367,9 @@ class PolygonAnnotation(TextAnnotation):
 
 class BezierCurveAnnotation(TextAnnotation):
     # Potentially more compact than polygon but can represent more (?) shapes
-    def __init__(self, text: str, language, points: list[list[float]]):
+    def __init__(self, text: str, language, *args):
         """
-        bezier_data: a 1x16 matrix defining two bezier curves. Each pair of
+        args: a 1x16 matrix defining two bezier curves. Each pair of
         elements defines a coordinate-pair, e.g.
 
         [x1, y1, ... x8, y8, x9, y9, ... x16, y16]
@@ -299,46 +379,40 @@ class BezierCurveAnnotation(TextAnnotation):
         curve should be located spatially above the second curve.
         """
         super().__init__(text=text, language=language)
-        if len(points) != 16:
+        if len(args) != 16:
             raise ValueError("16 numerical (int/float) values are required!")
-        self.points = points
-        self.coordinates = list(zip(self.points[::2], self.points[1::2]))
-        self.curves = [self.coordinates[0:4], self.coordinates[4:8]]
+        self.points = list(zip(args[::2], args[1::2]))
+        self.curves = [self.points[0:4], self.points[4:8]]
+        self.type = "bezier"
 
     @staticmethod
     def _bezier_fn(curve, t):
-        """Calculate coordinate of a point in the bezier curve"""
-        x = (
-            (1 - t) ** 3 * curve[0][0]
-            + 3 * (1 - t) ** 2 * t * curve[1][0]
-            + 3 * (1 - t) * t**2 * curve[2][0]
-            + t**3 * curve[3][0]
-        )
-        y = (
-            (1 - t) ** 3 * curve[0][1]
-            + 3 * (1 - t) ** 2 * t * curve[1][1]
-            + 3 * (1 - t) * t**2 * curve[2][1]
-            + t**3 * curve[3][1]
-        )
-        return x, y
+        """
+        Calculate coordinate of a point in the bezier curve.
+        Curve is a [4, 2] list of coordinate pairs. `t` is the parameter.
+        
+        Returns the x, y coordinate pair at point t along the curve.
+        """
+        curve = np.array(curve)
+        bernstein = np.array([(1-t)**3, 3*(1-t)**2 * t, 3*(1-t) * t**2, t**3])
+        point = np.sum(bernstein[:, np.newaxis] * curve, axis=0)
+        return point.tolist()
 
     def get_data(self):
-        out_dict = {}
+        out_dict = {"type": self.type, "text": self.text, "language": self.language}
         for idx, val in enumerate(self.points):
             out_dict[f"x{idx//2 + 1}"], out_dict[f"y{idx//2 + 1}"] = val
         return out_dict
 
     def to_polygon(self, n=20):
-        curve_top = np.array(self.points[:8]).reshape(4, 2)
-        curve_bottom = np.array(self.points[8:]).reshape(4, 2)
+        curve_top = np.array(self.points[:4]).reshape(4, 2)
+        curve_bottom = np.array(self.points[4:]).reshape(4, 2)
 
         t = np.linspace(0, 1, n)
         t = t.reshape(-1, 1)
 
         # Setup bezier function
-        bernstein = np.array(
-            [(1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t**2, t**3]
-        )
+        bernstein = np.array([(1-t)**3, 3*(1-t)**2*t, 3*(1-t)*t**2, t**3])
         bernstein = bernstein.transpose(2, 1, 0)
 
         # Compute points on the curve
@@ -349,7 +423,7 @@ class BezierCurveAnnotation(TextAnnotation):
             (points_top.reshape(-1), points_bottom.reshape(-1)), axis=0
         )
 
-        return PolygonAnnotation(self.text, *polygon_full.tolist())
+        return PolygonAnnotation(self.text, self.language, *polygon_full.tolist())
 
     def __repr__(self):
         return f"Bezier({self.text})"
