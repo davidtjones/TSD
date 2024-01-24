@@ -20,7 +20,7 @@ This package isn't on PyPI (yet), but you can still use pip to install it:
 pip install git+https://github.com/davidtjones/TSD.git
 ```
 
-### TextAnnotation
+## TextAnnotation
 `TextAnnotation` is a base class that can be easily extended to support other annotation formats. This library includes several formats already. Of particular note is that TextAnnotation includes a class level conversion registry. Subclasses can be registered like so:
 ```
 TextAnnotation.register_conversion(BoxAnnotation, QuadAnnotation, BoxAnnotation.to_quad)
