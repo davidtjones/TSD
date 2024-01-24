@@ -51,7 +51,6 @@ class Visualizer:
 
     def visualize(
         self,
-        astype=None,
         save_path=None,
         draw_language_name=False,
         draw_vertex_numbers=False,
@@ -81,8 +80,6 @@ class Visualizer:
 
         for idx, annotation in enumerate(self.annotations):
             color = idx % len(self.colors)
-            if astype:
-                annotation = annotation.to(astype)
 
             # Draw the shape of the annotation
             if type(annotation) == BezierCurveAnnotation:
