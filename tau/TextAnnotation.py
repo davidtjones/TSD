@@ -128,11 +128,13 @@ class TextAnnotation(ABC):
         return type(self)(text, lang, *new_pts)
 
     def __repr__(self):
-        return f"{self.name}({self.text})"
+        return f"{self.type}({self.text})"
 
     def __init__(self, text, language=None, *args):
+        self.type = "GenericTextAnnotation"
         self.text = text
         self.language = language
+        
 
 
 class DotAnnotation(TextAnnotation):
@@ -254,7 +256,7 @@ class QuadAnnotation(TextAnnotation):
     def __init__(self, text: str, language, *args: list[int | float]):
         super().__init__(text=text, language=language)
         if len(args) != 8:
-            raise ValueError("Eight int values are required")
+            raise ValueError("Eight numeric values are required")
 
         args = self._fix_args_order(args)
 
@@ -375,7 +377,7 @@ class PolygonAnnotation(TextAnnotation):
     def get_data(self):
         out_dict = {"type": self.type, "text": self.text, "language": self.language}
         for idx, val in enumerate(self.points):
-            out_dict[f"x{idx//2 + 1}"], out_dict[f"y{idx//2 + 1}"] = val
+            out_dict[f"x{idx + 1}"], out_dict[f"y{idx + 1}"] = val
         return out_dict
 
 
