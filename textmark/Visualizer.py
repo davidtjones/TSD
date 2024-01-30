@@ -234,5 +234,7 @@ class Visualizer:
 
         vis_image.paste(transparent_layer, mask=transparent_layer)
         if save_path:
+            if vis_image.mode != 'RGB':
+                vis_image.convert('RGB')
             vis_image.save(save_path)
         return vis_image
