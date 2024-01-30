@@ -3,8 +3,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from tau import TextAnnotation, Visualizer
-from tau.tools import FontHandler
+from textmark import TextAnnotation, Visualizer
+from textmark.tools import FontHandler
 
 
 def create_gif(image_folder, output_path, duration):
