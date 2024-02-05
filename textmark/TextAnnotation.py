@@ -17,8 +17,17 @@ class Graph:
     def __getitem__(self, name):
         return self.graph[name]
 
+# TODO: Create a new subclass "PointAnnotation" that uses points and gets data
+#       for point-based methods. We may eventually want a PixelAnnotation for
+#       segmentation that has its own get_data
+#       
+#       e.g., 
+#       class PointAnnotation(TextAnnotation, ABC)
+#       and
+#       class PixelAnnotation(TextAnnotation, ABC)     
 
 class TextAnnotation(ABC):
+    _type = "AbstractGeneric"  # be sure to override this in your subclass
     _conversion_registry = {}
     _name_registry = {}
     _conversion_graph = Graph()
@@ -41,8 +50,25 @@ class TextAnnotation(ABC):
                 f"Invalid name '{name}' not recognized by factory. "
                 f"Should be one of {list(cls._name_registry.keys())}"
             )
-
+    
+    # TODO: Optionally, there may be parameters associated with a given 
+    #       converstion. E.g., if we convert from a bezier curve to a polygon,
+    #       the user may wish for more or less points to be sampled. It would
+    #       be nice if we could optionally extract the path itself and then
+    #       provide function arguments to the functions we wish to parameterize.
+    
+    # TODO: it seems like we hit an infinite loop if a conversion isn't found
+    #       e.g., poly -> bezier
     def to(self, target_class):
+        """
+        Returns a new TextAnnotation object of the given target class type.
+
+        `target_class` can either be a string referencing the target class or
+        the class type (e.g., BoxAnnotation).
+
+        The target class must registered in both the name and conversion
+        registries.
+        """
         if isinstance(target_class, str):
             # if target_class is a string, convert it to the correct class
             if target_class in self._name_registry:
@@ -68,18 +94,7 @@ class TextAnnotation(ABC):
             raise TypeError(
                 "Expected subclass of TextAnnotation or string name for conversion"
             )
-
-    @classmethod
-    def from_serialized(cls, serialized):
-        """Factory method"""
-
-        ant_type = serialized.pop("type")
-        text = serialized.pop("text")
-        language = serialized.pop("language")
-        points = list(serialized.values())
-
-        return cls.factory(ant_type, text, language, *points)
-
+            
     @classmethod
     def _find_conversion_path(cls, start_class, target_class):
         # use breadth first search to find path from source to target
@@ -92,7 +107,17 @@ class TextAnnotation(ABC):
             for e in cls._conversion_graph[curr_path[-1]]:
                 q.put(curr_path + [e])
 
-    @abstractmethod
+    @classmethod
+    def from_serialized(cls, serialized):
+        """Factory method"""
+
+        ant_type = serialized.pop("type")
+        text = serialized.pop("text")
+        language = serialized.pop("language")
+        points = list(serialized.values())
+
+        return cls.factory(ant_type, text, language, *points)
+
     def get_data(self):
         """
         This method should return a JSON-serializable dictionary for the
@@ -110,7 +135,16 @@ class TextAnnotation(ABC):
         parsing techniques for all types. It is strongy recommended that new
         derived classes follow this schema.
         """
-        pass
+        out_dict = {
+            "type": type(self)._type,
+            "text": self.text,
+            "language": self.language,
+        }
+
+        if self.points:
+            for idx, val in enumerate(self.points):
+                out_dict[f"x{idx+1}"], out_dict[f"y{idx+1}"] = val
+            return out_dict
 
     def copy(self):
         """
@@ -128,37 +162,30 @@ class TextAnnotation(ABC):
         return type(self)(text, lang, *new_pts)
 
     def __repr__(self):
-        return f"{self.type}({self.text})"
+        return f"{type(self)._type}({self.text})"
 
     def __init__(self, text, language=None, *args):
-        self.type = "GenericTextAnnotation"
         self.text = text
         self.language = language
-        
+        self.points = None
 
 
 class DotAnnotation(TextAnnotation):
+    _type = "Dot"
+
     def __init__(self, text, language, *args: list[int | float]):
         super().__init__(text=text, language=language)
         if len(args) != 2:
             raise ValueError("Two int values are required")
-        self.x, self.y = args
-        self.type = "Dot"
+        x, y = args
+        self.points = [(x, y)]
 
     def to_box(self):
         """Creates a "box" around the dot"""
+        x, y = self.points[0]
         return BoxAnnotation(
-            self.text, self.language, self.x - 1, self.y + 1, self.x + 1, self.y - 1
+            self.text, self.language, x - 1, y + 1, x + 1, y - 1
         )
-
-    def get_data(self):
-        return {
-            "type": self.type,
-            "text": self.text,
-            "language": self.language,
-            "x1": self.x,
-            "y1": self.y,
-        }
 
 
 class BoxAnnotation(TextAnnotation):
@@ -172,6 +199,8 @@ class BoxAnnotation(TextAnnotation):
     function.
     """
 
+    _type = "Box"
+
     def __init__(self, text, language, *args: list[int | float]):
         super().__init__(text=text, language=language)
         if len(args) != 4:
@@ -180,11 +209,6 @@ class BoxAnnotation(TextAnnotation):
         args = self._fix_args_order(args)
 
         self.points = list(zip(args[::2], args[1::2]))
-
-        self.x1, self.y1 = self.points[0]
-        self.x2, self.y2 = self.points[1]
-
-        self.type = "Box"
 
     def _fix_args_order(self, args):
         # points must go from upper left to lower right, but we're in screen
@@ -211,8 +235,12 @@ class BoxAnnotation(TextAnnotation):
 
     def to_dot(self):
         """Returns the centerpoint of the 2D Box"""
-        x = (self.x1 + self.x2) // 2
-        y = (self.y1 + self.y2) // 2
+        x1, y1 = self.points[0]
+        x2, y2 = self.points[1]
+
+        # Midpoint formula
+        x = (x1 + x2) // 2
+        y = (y1 + y2) // 2
         return DotAnnotation(self.text, self.language, x, y)
 
     def to_quad(self):
@@ -220,29 +248,21 @@ class BoxAnnotation(TextAnnotation):
         Adds the missing two points to make a quad. The order below ensures this
         quad can be drawn as as polygon without overlapping on itself.
         """
+        x1, y1 = self.points[0]
+        x2, y2 = self.points[1]
+
         return QuadAnnotation(
             self.text,
             self.language,
-            self.x1,
-            self.y1,
-            self.x1,
-            self.y2,
-            self.x2,
-            self.y2,
-            self.x2,
-            self.y1,
+            x1,
+            y1,
+            x1,
+            y2,
+            x2,
+            y2,
+            x2,
+            y1,
         )
-
-    def get_data(self):
-        return {
-            "type": self.type,
-            "text": self.text,
-            "language": self.language,
-            "x1": self.x1,
-            "y1": self.y1,
-            "x2": self.x2,
-            "y2": self.y2,
-        }
 
 
 class QuadAnnotation(TextAnnotation):
@@ -253,6 +273,8 @@ class QuadAnnotation(TextAnnotation):
     extend this class and override _fix_args_order.
     """
 
+    _type = "Quad"
+
     def __init__(self, text: str, language, *args: list[int | float]):
         super().__init__(text=text, language=language)
         if len(args) != 8:
@@ -261,13 +283,6 @@ class QuadAnnotation(TextAnnotation):
         args = self._fix_args_order(args)
 
         self.points = list(zip(args[::2], args[1::2]))
-
-        self.x1, self.y1 = self.points[0]
-        self.x2, self.y2 = self.points[1]
-        self.x3, self.y3 = self.points[2]
-        self.x4, self.y4 = self.points[3]
-
-        self.type = "Quad"
 
     def _fix_args_order(self, args):
         """
@@ -298,43 +313,14 @@ class QuadAnnotation(TextAnnotation):
         return BoxAnnotation(self.text, self.language, *bounding_box)
 
     def to_polygon(self):
-        points = [
-            self.x1,
-            self.y1,
-            (self.x1 + self.x2) / 2,
-            (self.y1 + self.y2) / 2,
-            self.x2,
-            self.y2,
-            (self.x2 + self.x3) / 2,
-            (self.y2 + self.y3) / 2,
-            self.x3,
-            self.y3,
-            (self.x3 + self.x4) / 2,
-            (self.y3 + self.y4) / 2,
-            self.x4,
-            self.y4,
-            (self.x4 + self.x1) / 2,
-            (self.y4 + self.y1) / 2,
-        ]
-        return PolygonAnnotation(self.text, self.language, *points)
-
-    def get_data(self):
-        return {
-            "type": self.type,
-            "text": self.text,
-            "language": self.language,
-            "x1": self.x1,
-            "y1": self.y1,
-            "x2": self.x2,
-            "y2": self.y2,
-            "x3": self.x3,
-            "y3": self.y3,
-            "x4": self.x4,
-            "y4": self.y4,
-        }
+        # TODO: see: parameteriziation in TextAnnotation.to method. The user may
+        #       wish to sample n points from the quad to build the polygon.
+        return PolygonAnnotation(self.text, self.language, *self.points)
 
 
 class PolygonAnnotation(TextAnnotation):
+    _type = "Poly"
+
     def __init__(self, text: str, language, *args: list[int | float]):
         super().__init__(text=text, language=language)
 
@@ -342,8 +328,6 @@ class PolygonAnnotation(TextAnnotation):
             raise ValueError("An even number of values are required!")
 
         self.points = list(zip(args[::2], args[1::2]))
-
-        self.type = "Poly"
 
     def to_quad(self):
         """
@@ -374,15 +358,11 @@ class PolygonAnnotation(TextAnnotation):
 
         return QuadAnnotation(self.text, self.language, *flattened_points)
 
-    def get_data(self):
-        out_dict = {"type": self.type, "text": self.text, "language": self.language}
-        for idx, val in enumerate(self.points):
-            out_dict[f"x{idx + 1}"], out_dict[f"y{idx + 1}"] = val
-        return out_dict
-
 
 class BezierCurveAnnotation(TextAnnotation):
     # Potentially more compact than polygon but can represent more (?) shapes
+    _type = "Bezier"
+
     def __init__(self, text: str, language, *args):
         """
         args: a 1x16 matrix defining two bezier curves. Each pair of
@@ -393,13 +373,20 @@ class BezierCurveAnnotation(TextAnnotation):
         where the first and last pairs of each interior array is an endpoint,
         and the second and third pairs are control points. The first bezier
         curve should be located spatially above the second curve.
+
+        Note: currently, no safeguards are implemented to prevent the bezier
+        curve from going "outside" the bounds of the image (the image dims are
+        not even part of TextAnnotation's spec). When using annotations of this
+        type, you should implement some kind of safeguard if you later convert
+        to another type, e.g., bounding boxes:
+
+        np.clip(my_bezier.get_data()
         """
         super().__init__(text=text, language=language)
         if len(args) != 16:
             raise ValueError("16 numerical (int/float) values are required!")
         self.points = list(zip(args[::2], args[1::2]))
         self.curves = [self.points[0:4], self.points[4:8]]
-        self.type = "Bezier"
 
     @staticmethod
     def _bezier_fn(curve, t):
@@ -416,13 +403,9 @@ class BezierCurveAnnotation(TextAnnotation):
         point = np.sum(bernstein[:, np.newaxis] * curve, axis=0)
         return point.tolist()
 
-    def get_data(self):
-        out_dict = {"type": self.type, "text": self.text, "language": self.language}
-        for idx, val in enumerate(self.points):
-            out_dict[f"x{idx+1}"], out_dict[f"y{idx+1}"] = val
-        return out_dict
-
-    def to_polygon(self, n=20):
+    def to_polygon(self):
+        n = 16  # TODO: see: parameterization in TextAnnotation.to method
+        
         curve_top = np.array(self.points[:4]).reshape(4, 2)
         curve_bottom = np.array(self.points[4:]).reshape(4, 2)
 
@@ -447,17 +430,14 @@ class BezierCurveAnnotation(TextAnnotation):
 
 
 # Register names
-for name, cls_name in zip(
-    ["Dot", "Box", "Quad", "Poly", "Bezier"],
-    [
-        DotAnnotation,
-        BoxAnnotation,
-        QuadAnnotation,
-        PolygonAnnotation,
-        BezierCurveAnnotation,
-    ],
-):
-    TextAnnotation.register_name(name, cls_name)
+for cls in [
+    DotAnnotation,
+    BoxAnnotation,
+    QuadAnnotation,
+    PolygonAnnotation,
+    BezierCurveAnnotation,
+]:
+    TextAnnotation.register_name(cls._type, cls)
 
 # Register conversions
 conversions = [

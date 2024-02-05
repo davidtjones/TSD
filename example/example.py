@@ -42,7 +42,6 @@ def create_gif(image_folder, output_path, duration):
         loop=0,
     )
 
-
 out_path = Path("out")
 out_path.mkdir(parents=True, exist_ok=True)
 
