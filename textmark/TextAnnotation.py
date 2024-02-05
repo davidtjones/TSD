@@ -69,6 +69,7 @@ class TextAnnotation(ABC):
         The target class must registered in both the name and conversion
         registries.
         """
+        
         if isinstance(target_class, str):
             # if target_class is a string, convert it to the correct class
             if target_class in self._name_registry:
@@ -78,18 +79,25 @@ class TextAnnotation(ABC):
                     f"Annotation name {target_class} is invalid for conversion. "
                     f"Should be one of {list(self._name_registry.keys())}"
                 )
+                
+        if isinstance(self, target_class):
+            return self.copy()
 
         if issubclass(target_class, TextAnnotation):
             conversion_path = self._find_conversion_path(type(self), target_class)
-            current_instance = self
+            
+            if conversion_path:
+                current_instance = self
 
-            if type(current_instance) != target_class:
-                for intermediate_class in conversion_path:
-                    conversion_func = self._conversion_registry[
-                        (type(current_instance), intermediate_class)
-                    ]
-                    current_instance = conversion_func(current_instance)
-            return current_instance
+                if type(current_instance) != target_class:
+                    for intermediate_class in conversion_path:
+                        conversion_func = self._conversion_registry[
+                            (type(current_instance), intermediate_class)
+                        ]
+                        current_instance = conversion_func(current_instance)
+                return current_instance
+            else:
+                raise ValueError(f"No conversion path: {type(self)._type}->{target_class._type}")
         else:
             raise TypeError(
                 "Expected subclass of TextAnnotation or string name for conversion"
@@ -100,12 +108,23 @@ class TextAnnotation(ABC):
         # use breadth first search to find path from source to target
         q = Queue()
         q.put([start_class])
+        
+        visited = set()
+        visited.add(start_class)
+        
         while not q.empty():
             curr_path = q.get()
-            if curr_path[-1] == target_class:
+            curr_node = curr_path[-1]
+            
+            if curr_node == target_class:
                 return curr_path[1:]
+            
             for e in cls._conversion_graph[curr_path[-1]]:
-                q.put(curr_path + [e])
+                if e not in visited:
+                    visited.add(e)
+                    q.put(curr_path + [e])
+        
+        return None
 
     @classmethod
     def from_serialized(cls, serialized):

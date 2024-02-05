@@ -1,5 +1,61 @@
 import unittest
+
 from textmark import TextAnnotation
+
+
+class ConversionTest(unittest.TestCase):
+    """
+    It's difficult to write these test cases at this point because there are a
+    large number of cases. The methods used to perform these conversions are
+    also subject to a lot of change. Visual inspection is a much better tool.
+
+    These quick tests are used to ensure that changes to the base class don't
+    break conversions.
+    """
+
+    def test_bezier_to_dot(self):
+        try:
+            points = [
+                305,
+                433,
+                383.37,
+                458.8,
+                404.23,
+                439.96,
+                464,
+                423,
+                460,
+                462,
+                405.58,
+                474.53,
+                380.33,
+                489.72,
+                305,
+                462,
+            ]
+
+            my_bez = TextAnnotation.factory(
+                "Bezier", "bezier-to-dot-test", "english", *points
+            )
+            my_bez.to("Dot")
+        except Exception as e:
+            self.fail(f"test_bezier_to_dot failed with exception {e}")
+
+    def test_dot_to_bezier(self):
+        with self.assertRaises(ValueError):
+            points = [25, 100]
+            my_dot = TextAnnotation.factory(
+                "Dot", "dot-to-bez-test", "english", *points
+            )
+            my_dot.to("Bezier")
+
+    def test_dot2dot(self):
+        try:
+            points = [25, 100]
+            my_dot = TextAnnotation.factory("Dot", "dot2dot-test", "english", *points)
+            my_dot = my_dot.to("Dot")
+        except Exception as e:
+            self.fail(f"test_bezier_to_dot failed with exception {e}")
 
 
 class GetDataTest(unittest.TestCase):
