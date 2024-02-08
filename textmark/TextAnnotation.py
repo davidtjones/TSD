@@ -1,5 +1,5 @@
 import math
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import defaultdict
 from queue import Queue
 
@@ -57,8 +57,6 @@ class TextAnnotation(ABC):
     #       be nice if we could optionally extract the path itself and then
     #       provide function arguments to the functions we wish to parameterize.
     
-    # TODO: it seems like we hit an infinite loop if a conversion isn't found
-    #       e.g., poly -> bezier
     def to(self, target_class):
         """
         Returns a new TextAnnotation object of the given target class type.
@@ -212,7 +210,7 @@ class BoxAnnotation(TextAnnotation):
     Standard 2D Box.
 
     Box Annotations should be in the form [left, top, right, bottom]. This
-    ordering is enforced. This is done to make representations consistent and
+    ordering is enforced to make representations consistent and
     predictable, which is crucial for downstream applications. If this is
     undesirable, extend this class and override the _fix_args_order
     function.
@@ -231,7 +229,7 @@ class BoxAnnotation(TextAnnotation):
 
     def _fix_args_order(self, args):
         # points must go from upper left to lower right, but we're in screen
-        # coordinates, dy should be positive
+        # coordinates, so dy should be positive, e.g., [minx, miny, maxx, maxy]
         dx = args[2] - args[0]
         dy = args[3] - args[1]
 
@@ -265,31 +263,36 @@ class BoxAnnotation(TextAnnotation):
     def to_quad(self):
         """
         Adds the missing two points to make a quad. The order below ensures this
-        quad can be drawn as as polygon without overlapping on itself.
+        quad can be drawn as as polygon without overlapping on itself. Points
+        should be ordered clockwise from the top left.
         """
         x1, y1 = self.points[0]
         x2, y2 = self.points[1]
-
+        
+        #
         return QuadAnnotation(
             self.text,
             self.language,
             x1,
             y1,
-            x1,
-            y2,
-            x2,
-            y2,
             x2,
             y1,
+            x2,
+            y2,
+            x1,
+            y2,
         )
 
 
 class QuadAnnotation(TextAnnotation):
     """
-    Standard 2D Quadrilateral.
+    Standard Quadrilateral. Quadrilaterals may have any arbitrary shape,
+    unlike Boxes which are axis-aligned.
 
-    Like Box, QuadAnnotation enforces point order. If this is undesirable,
-    extend this class and override _fix_args_order.
+    As far as I know, there is no reliable way to programmatically ensure that
+    a quadrilateral is correctly formed around the text (e.g., if we always want
+    the first point to be the point to the top left of the first character).
+    **Be careful when assigning points to your instance.**
     """
 
     _type = "Quad"
@@ -299,28 +302,7 @@ class QuadAnnotation(TextAnnotation):
         if len(args) != 8:
             raise ValueError("Eight numeric values are required")
 
-        args = self._fix_args_order(args)
-
         self.points = list(zip(args[::2], args[1::2]))
-
-    def _fix_args_order(self, args):
-        """
-        Sorts points in "clockwise" order starting from top left.
-        """
-        points = list(zip(args[::2], args[1::2]))
-
-        points.sort(key=lambda p: (p[0], -p[1]))
-        top_left = points[0] if points[0][1] < points[1][1] else points[1]
-        bottom_left = points[0] if points[0][1] > points[1][1] else points[1]
-
-        points.sort(key=lambda p: (-p[0], p[1]))
-        top_right = points[0] if points[0][1] < points[1][1] else points[1]
-        bottom_right = points[0] if points[0][1] > points[1][1] else points[1]
-
-        points = [top_left, top_right, bottom_right, bottom_left]
-
-        args = [coord for point in points for coord in point]
-        return args
 
     def to_box(self):
         polygon = Polygon(self.points)
@@ -328,16 +310,24 @@ class QuadAnnotation(TextAnnotation):
 
         # Shapely uses math coordinates
         minx, miny, maxx, maxy = bounding_box
-        bounding_box = [minx, maxy, maxx, miny]
+        bounding_box = [minx, miny, maxx, maxy]
         return BoxAnnotation(self.text, self.language, *bounding_box)
 
     def to_polygon(self):
+        """
+        Quadrilaterals are polygons so this conversion is very simple.
+        """
         # TODO: see: parameteriziation in TextAnnotation.to method. The user may
         #       wish to sample n points from the quad to build the polygon.
         return PolygonAnnotation(self.text, self.language, *self.points)
 
 
 class PolygonAnnotation(TextAnnotation):
+    """
+    Standard n-point Polygon. Polygons are essentially the same as 
+    Quadrilaterals but with more points. As with quadrilaterals, it is difficult
+    to interpret orientation from point data
+    """
     _type = "Poly"
 
     def __init__(self, text: str, language, *args: list[int | float]):
@@ -350,12 +340,8 @@ class PolygonAnnotation(TextAnnotation):
 
     def to_quad(self):
         """
-        Quads are actually kind of hard. I'm unsure if it is possible to
-        reliably ever convert to a quad because the shape and position are so
-        ambiguous. I can ensure that quads are always drawn the same way
-        relative to the image axes, but if text is rotated 90 degrees and the
-        quad is constructed relative to the angle of the text, there may be a
-        problem. I'd like to test this more and investigate if datasets do this.
+        This attempts to sort the vertices and return a quadrilateral in the
+        same orietation as the polygon.
         """
         # This may not be a guaranteed solution for very odd shapes.
         poly = Polygon(self.points)
@@ -397,9 +383,7 @@ class BezierCurveAnnotation(TextAnnotation):
         curve from going "outside" the bounds of the image (the image dims are
         not even part of TextAnnotation's spec). When using annotations of this
         type, you should implement some kind of safeguard if you later convert
-        to another type, e.g., bounding boxes:
-
-        np.clip(my_bezier.get_data()
+        to another type, e.g., bounding boxes.
         """
         super().__init__(text=text, language=language)
         if len(args) != 16:
@@ -423,6 +407,10 @@ class BezierCurveAnnotation(TextAnnotation):
         return point.tolist()
 
     def to_polygon(self):
+        """
+        This samples the bezier `n` times (default 16) and returns the resultant
+        polygon.
+        """
         n = 16  # TODO: see: parameterization in TextAnnotation.to method
         
         curve_top = np.array(self.points[:4]).reshape(4, 2)
