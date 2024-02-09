@@ -54,6 +54,7 @@ class Visualizer:
         save_path=None,
         draw_language_name=False,
         draw_vertex_numbers=False,
+        draw_annotation_order=False,
     ):
         """
         Visualize the image.
@@ -165,11 +166,15 @@ class Visualizer:
             # Handle font and text drawing
             atext = annotation.text
 
+            if draw_annotation_order:
+                atext += f" [{str(idx)}]"
+
             x_text = points[0][0]
             y_text = points[0][1] - font_height
 
             # We need english font every time to display the language name
             alang = annotation.language.lower()
+
             match alang:
                 case (
                     "latin"
@@ -234,7 +239,7 @@ class Visualizer:
 
         vis_image.paste(transparent_layer, mask=transparent_layer)
         if save_path:
-            if vis_image.mode != 'RGB':
-                vis_image.convert('RGB')
+            if vis_image.mode != "RGB":
+                vis_image.convert("RGB")
             vis_image.save(save_path)
         return vis_image
