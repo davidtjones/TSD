@@ -27,12 +27,17 @@ def draw_numbered_point(draw, x, y, size, num: str, font, font_height):
 
 
 class Visualizer:
-    def __init__(self, image_path, annotations, colors=None):
+    def __init__(self, annotations, image_path=None, image=None, colors=None):
         self.image_path = image_path
-        self.image = Image.open(image_path)
+        self.image = image
+        if image_path and image:
+            raise ValueError("Provide only one of image_path and image")
+        
+        if image_path:
+            self.image = Image.open(image_path)
+        
         self.image_width, self.image_height = self.image.size
         self.annotations = annotations
-
         self.colors = colors
         if not self.colors:
             self.colors = [

@@ -158,7 +158,7 @@ class TextAnnotation(ABC):
             "language": self.language,
         }
 
-        if self.points:
+        if self.points is not None and len(self.points) > 0:
             for idx, val in enumerate(self.points):
                 out_dict[f"x{idx+1}"], out_dict[f"y{idx+1}"] = val
             return out_dict

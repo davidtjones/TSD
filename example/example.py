@@ -61,7 +61,7 @@ image_path = "data.png"
 for annotation_type in ("Bezier", "Poly", "Quad", "Box", "Dot"):
     converted_anntations = [ant.to(annotation_type) for ant in annotations]
 
-    vis = Visualizer(image_path, converted_anntations)
+    vis = Visualizer(converted_anntations, image_path=image_path)
     vis.visualize(
         save_path=out_path / f"{annotation_type}.png",
         draw_language_name=False,
