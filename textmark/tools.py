@@ -18,7 +18,7 @@ class FontHandler:
         else:
             raise NotImplementedError(f"No implementation for OS: {platform.system()}")
 
-        self.font_dir = self.data_dir / "tau" / "fonts"
+        self.font_dir = self.data_dir / "textmark" / "fonts"
         self.font_dir.mkdir(parents=True, exist_ok=True)
         self.font_cache = {}
 
