@@ -1,3 +1,9 @@
+## 0.3.6 (2024-03-07)
+
+### Fix
+
+- second attempt at fix for github action version for pypi publishing. Updating setup-python.
+
 ## 0.3.5 (2024-03-07)
 
 ### Fix
