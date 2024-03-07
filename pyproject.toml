@@ -25,3 +25,10 @@ dependencies = [
 [project.urls]
 homepage = "https://github.com/davidtjones/textmark"
 repository = "https://github.com/davidtjones/textmark"
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
+major_version_zero = true
