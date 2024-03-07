@@ -1,3 +1,9 @@
+## 0.3.3 (2024-03-07)
+
+### Fix
+
+- second attempt at fix for github action version for pypi publishing
+
 ## 0.3.2 (2024-03-07)
 
 ### Fix
