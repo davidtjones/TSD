@@ -180,35 +180,22 @@ class Visualizer:
             # We need english font every time to display the language name
             alang = annotation.language.lower()
 
-            match alang:
-                case (
-                    "latin"
-                    | "english"
-                    | "german"
-                    | "french"
-                    | "spanish"
-                    | "italian"
-                    | "none"
-                    | "symbols"
-                    | None
-                ):
-                    lang_font_path = self.font_handler.get_font("NotoSans")
-                case "chinese":
-                    lang_font_path = self.font_handler.get_font("NotoSansSC")
-                case "japanese":
-                    lang_font_path = self.font_handler.get_font("NotoSansJP")
-                case "korean":
-                    lang_font_path = self.font_handler.get_font("NotoSansKR")
-                case "bengali" | "bangla":
-                    lang_font_path = self.font_handler.get_font("NotoSansBengali")
-                case "devanagari" | "hindi":
-                    lang_font_path = self.font_handler.get_font("NotoSansDevanagari")
-                case "arabic":
-                    lang_font_path = self.font_handler.get_font("NotoSansArarbic")
-                case _:
-                    raise ValueError(
-                        f'Unsupported language "{alang}" for text: {atext}. See image {self.image_path}'
-                    )
+            if alang in ["latin", "english", "german", "french", "spanish", "italian", "none", "symbols", None]:
+                lang_font_path = self.font_handler.get_font("NotoSans")
+            elif alang == "chinese":
+                lang_font_path = self.font_handler.get_font("NotoSansSC")
+            elif alang == "japanese":
+                lang_font_path = self.font_handler.get_font("NotoSansJP")
+            elif alang == "korean":
+                lang_font_path = self.font_handler.get_font("NotoSansKR")
+            elif alang in ["bengali", "bangla"]:
+                lang_font_path = self.font_handler.get_font("NotoSansBengali")
+            elif alang in ["devanagari", "hindi"]:
+                lang_font_path = self.font_handler.get_font("NotoSansDevanagari")
+            elif alang == "arabic":
+                lang_font_path = self.font_handler.get_font("NotoSansArabic")  # Fixed typo from "Ararbic" to "Arabic"
+            else:
+                raise ValueError(f'Unsupported language "{alang}" for text: {atext}. See image {self.image_path}')
 
             lang_font = ImageFont.truetype(font=lang_font_path, size=font_height)
             alang = f" [{alang.capitalize()}]"

@@ -6,6 +6,7 @@ from queue import Queue
 import numpy as np
 from shapely.geometry import Polygon
 
+from typing import List, Union
 
 class Graph:
     def __init__(self):
@@ -190,7 +191,7 @@ class TextAnnotation(ABC):
 class DotAnnotation(TextAnnotation):
     _type = "Dot"
 
-    def __init__(self, text, language, *args: list[int | float]):
+    def __init__(self, text, language, *args: "List[Union[int, float]]"):
         super().__init__(text=text, language=language)
         if len(args) != 2:
             raise ValueError("Two int values are required")
@@ -218,7 +219,7 @@ class BoxAnnotation(TextAnnotation):
 
     _type = "Box"
 
-    def __init__(self, text, language, *args: list[int | float]):
+    def __init__(self, text, language, *args: "List[Union[int, float]]"):
         super().__init__(text=text, language=language)
         if len(args) != 4:
             raise ValueError("Four int values are required")
@@ -297,7 +298,7 @@ class QuadAnnotation(TextAnnotation):
 
     _type = "Quad"
 
-    def __init__(self, text: str, language, *args: list[int | float]):
+    def __init__(self, text: str, language, *args: "List[Union[int, float]]"):
         super().__init__(text=text, language=language)
         if len(args) != 8:
             raise ValueError("Eight numeric values are required")
@@ -330,7 +331,7 @@ class PolygonAnnotation(TextAnnotation):
     """
     _type = "Poly"
 
-    def __init__(self, text: str, language, *args: list[int | float]):
+    def __init__(self, text: str, language, *args: "List[Union[int, float]]"):
         super().__init__(text=text, language=language)
 
         if len(args) % 2 != 0:
@@ -368,7 +369,7 @@ class BezierCurveAnnotation(TextAnnotation):
     # Potentially more compact than polygon but can represent more (?) shapes
     _type = "Bezier"
 
-    def __init__(self, text: str, language, *args):
+    def __init__(self, text: str, language, *args: "List[Union[int, float]]"):
         """
         args: a 1x16 matrix defining two bezier curves. Each pair of
         elements defines a coordinate-pair, e.g.

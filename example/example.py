@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
-
+import sys
+sys.path.append("../textmark")
 from textmark import TextAnnotation, Visualizer
 from textmark.tools import FontHandler
 
@@ -42,11 +43,11 @@ def create_gif(image_folder, output_path, duration):
         loop=0,
     )
 
-out_path = Path("out")
+out_path = Path("example/out")
 out_path.mkdir(parents=True, exist_ok=True)
 
 # Build annotations
-with open("data.json", "r") as fp:
+with open("example/data.json", "r") as fp:
     data = json.load(fp)
 
 annotations = [
@@ -54,7 +55,7 @@ annotations = [
     for ant in data
 ]
 
-image_path = "data.png"
+image_path = "example/data.png"
 
 # Test converting annotations
 # Bez -> Bez, Bez -> Poly, Bez -> Quad, Bez -> Box, Bez -> Dot
@@ -68,4 +69,4 @@ for annotation_type in ("Bezier", "Poly", "Quad", "Box", "Dot"):
         draw_vertex_numbers=False,
     )
 
-create_gif(out_path, "example.gif", 2)
+create_gif(out_path, "example/example.gif", 2)

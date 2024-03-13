@@ -1,7 +1,8 @@
 import unittest
+import sys
 
+sys.path.append("../textmark")
 from textmark import TextAnnotation
-
 
 class ConversionTest(unittest.TestCase):
     """
