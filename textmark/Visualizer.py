@@ -60,6 +60,8 @@ class Visualizer:
         draw_language_name=False,
         draw_vertex_numbers=False,
         draw_annotation_order=False,
+        outline_width="auto",
+        font_height="auto"
     ):
         """
         Visualize the image.
@@ -76,8 +78,17 @@ class Visualizer:
         transparent_layer = Image.new("RGBA", self.image.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(transparent_layer)
 
-        outline_width = max(int(self.image_height * 0.01), 1)
-        font_height = int(self.image_height * 0.03)
+        if outline_width == "auto":
+            outline_width = max(int(self.image_height * 0.01), 1)
+        else:
+            if not isinstance(outline_width, int):
+                raise ValueError("outline_width must be an integer")
+
+        if font_height == "auto":
+            font_height = int(self.image_height * 0.03)
+        else:
+            if not isinstance(font_height, int):
+                raise ValueError("font_height must be an integer")
 
         lang_name_font = ImageFont.truetype(
             font=self.font_handler.get_font("NotoSans"),
