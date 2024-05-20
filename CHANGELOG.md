@@ -1,3 +1,9 @@
+## 0.5.0 (2024-05-20)
+
+### Feat
+
+- **textmark/Visualizer.py**: can now specify outline width and font height for visualization
+
 ## 0.4.0 (2024-03-13)
 
 ### Feat
